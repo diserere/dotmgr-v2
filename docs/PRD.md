@@ -24,13 +24,14 @@ dotmgr — CLI-инструмент, решающий три задачи:
 
 | Возможность | Описание |
 |---|---|
-| **Bootstrap** | `dotmgr init` — установка тула, клонирование приватного config-репо |
-| **Scaffold** | `dotmgr init` умеет создать пустой приватный репо `dotmgr-config` с дефолтной структурой |
+| **Install** | `wget ... | bash` — установка тула: клонирование публичного репо, создание venv, добавление в PATH |
+| **Init** | `dotmgr init` — клонирование или создание приватного config-репо `dotmgr-config` |
+| **Scaffold** | `dotmgr init` умеет создать пустой приватный репо с дефолтной структурой, если его нет |
 | **Fetch** | `dotmgr fetch` — `git pull` в `~/.dotmgr/config/` |
 | **Apply** | `dotmgr apply [group...]` — применить конфиги из репо в ФС + backup при конфликтах |
 | **Apply check** | Перед apply — проверка рассинхрона с remote; warning с опцией fetch |
 | **Группировка** | `dotmgr apply git` — только git-группу |
-| **Установка пакетов** | Группа `packages` — установка через apt |
+| **Установка пакетов** | Группа `packages` — установка через apt. MVP: `fastfetch` (пакет + конфиг = сквозной happy path) |
 | **List** | `dotmgr list` — показать доступные группы |
 
 ### 3.2 Не входит (Post-MVP, по приоритету)
@@ -46,27 +47,33 @@ dotmgr — CLI-инструмент, решающий три задачи:
 
 ## 4. User Stories (MVP)
 
-### Story 1: Bootstrap (init)
+### Story 1: Install
 
-> As a пользователь, I want выполнить `wget ... | bash` → получить установленный `dotmgr` (публичный репо склонирован, venv готов, runner добавлен в PATH) → `dotmgr init`, который создаёт приватное репо `dotmgr-config` со структурой (если его нет) или клонирует существующее, So что новая машина готова к apply.
+> As a пользователь, I want выполнить `wget ... | bash` и получить работоспособный `dotmgr` (публичный репо склонирован, venv создан, runner добавлен в PATH), So что я готов к дальнейшей инициализации.
 
-### Story 2: Apply all
+> Installer может по окончании предложить запустить `dotmgr init` с возможностью отказа.
+
+### Story 2: Init
+
+> As a пользователь, I want `dotmgr init` создать (если нет) или склонировать (если есть) приватное репо `dotmgr-config` с дефолтной структурой, So что я получаю готовое к apply хранилище конфигов.
+
+### Story 3: Apply all
 
 > As a пользователь, I want `dotmgr apply` применить все группы, So что окружение стало идентично эталонному.
 
-### Story 3: Apply by group
+### Story 4: Apply by group
 
 > As a пользователь, I want `dotmgr apply git` применить только git, So что я обновляю лишь нужное.
 
-### Story 4: Conflict handling
+### Story 5: Conflict handling
 
 > As a пользователь, I want если файл уже существует — pre-warning + выбор: backup+replace или skip, So что я не теряю локальные изменения.
 
-### Story 5: Freshness check
+### Story 6: Freshness check
 
 > As a пользователь, I want при apply — проверка: не рассинхронизирован ли локальный git-репо с remote. Если да — warning и предложение выполнить fetch. Но apply текущего состояния всё равно возможен.
 
-### Story 6: List groups
+### Story 7: List groups
 
 > As a пользователь, I want `dotmgr list` показать все доступные группы с описанием, So что я знаю, что можно применить.
 
@@ -87,9 +94,10 @@ dotmgr — CLI-инструмент, решающий три задачи:
 | Термин | Значение |
 |---|---|
 | `dotmgr` | CLI-команда (`~/.dotmgr/venv/bin/dotmgr`) |
-| **init** | Bootstrap: установка тула + создание/клонирование config-репо |
+| **init** | Инициализация: создание/клонирование приватного config-репо |
 | **fetch** | `git pull` конфигов из remote |
 | **apply** | Наложение конфигов из локального репо на ФС |
+| **push** | (V2) Сохранение локальных изменений в remote через commit + push |
 | **Group** | Логическая единица синхронизации (git, bash, packages и т.д.) |
 | **Manifest** | `.dotmgr.yaml` — файл, описывающий группы и их содержимое |
 | **Seed** | Первоначальное наполнение конфигов (руками, пока нет push) |
