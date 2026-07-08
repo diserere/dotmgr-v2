@@ -20,7 +20,7 @@
     └── config.py       # Локальное состояние
 
 Приватный репо (github.com/<user>/dotmgr-config)
-└── .dotmgr.yaml        # Манифест групп
+├── .dotmgr.yaml        # Манифест групп
 └── <group>/            # Stow-подобные директории
 ```
 
@@ -28,13 +28,13 @@
 
 #### `install.sh`
 
-**Назначение:** One-liner bootstrap. Устанавливает всё необходимое для работы dotmgr.
+**Назначение:** Bootstrap-скрипт для первоначальной установки тула. Запускается однострочной командой `wget -O- <url>/install.sh | bash`.
 
 **Что делает (последовательно):**
-1. **Detect OS** — проверяет `lsb_release -si` / `cat /etc/os-release`. Если не Ubuntu 24.04+ — exit с сообщением. `TODO: уточнить — soft warning или hard block?`
-2. **Install system packages** — `apt-get install -y git python3 python3-venv`
+1. **Detect OS** — проверяет `lsb_release -si` / `cat /etc/os-release`. Если не Ubuntu 24.04+ — WARNING с запросом подтверждения: продолжить (без гарантий совместимости) или прервать.
+2. **Install system packages** — `apt-get install -y git python3 python3-venv python3-pip`
 3. **Clone public repo** — `git clone https://github.com/<user>/dotmgr.git ~/.dotmgr/tool/`
-4. **Create venv** — `python3 -m venv ~/.dotmgr/venv/ && ~/.dotmgr/venv/bin/pip install pyyaml` (и другие зависимости)
+4. **Create venv** — `python3 -m venv ~/.dotmgr/venv/ && source ~/.dotmgr/venv/bin/activate && pip install pyyaml` (и другие зависимости)
 5. **Install CLI** — создаёт symlink `~/.local/bin/dotmgr → ~/.dotmgr/venv/bin/dotmgr` (или добавляет PATH в `.bashrc`)
 6. **Post-install prompt** — предлагает запустить `dotmgr init`
 
@@ -45,19 +45,20 @@
 
 **Exit codes:**
 | Код | Значение |
-|---|---|
+|---|---|---|
 | 0 | Успешно |
-| 1 | Неподдерживаемая ОС |
+| 1 | Неподдерживаемая ОС / отказ пользователя |
 | 2 | Ошибка установки пакетов (apt fail) |
 | 3 | Ошибка клонирования репо |
 | 4 | Ошибка создания venv |
+| 5 | Ошибка создания symlink в PATH |
 
 #### `~/.dotmgr/` — локальное состояние
 
 ```
 ~/.dotmgr/
 ├── tool/               # Клонированный публичный репо (исходный код)
-├── venv/               # Python virtual environment
+│   └── venv/           # Python virtual environment (внутри tool/)
 ├── config/             # Клонированный приватный config-репо (dotmgr-config)
 ├── backups/            # Бекапы заменённых файлов (apply-backup-<timestamp>/)
 └── state.json          # Сериализованное состояние apply
@@ -77,7 +78,7 @@ User terminal
     │       ├── [1] Проверка ОС (Ubuntu 24.04+)
     │       ├── [2] apt install git python3 python3-venv
     │       ├── [3] git clone <public-repo> ~/.dotmgr/tool/
-    │       ├── [4] python3 -m venv ~/.dotmgr/venv/ + pip install
+    │       ├── [4] python3 -m venv ~/.dotmgr/tool/venv + activate + pip install
     │       ├── [5] symlink dotmgr → PATH
     │       └── [6] prompt: "Run 'dotmgr init' now? [Y/n]"
     │
@@ -86,7 +87,10 @@ User terminal
             ├── [1] Проверка: существует ли ~/.dotmgr/config/
             ├── [2] Если да → git pull (fetch + merge)
             ├── [3] Если нет → prompt: создать пустой репо или клонировать?
-            │       ├── Создать: git init + scaffold дефолтной структуры
+            │       ├── Создать: git init + scaffold (шаблон с примерами)
+            │       │   └── Локальное репо, не пушится (push — V2).
+            │       │       В коде — заглушка: "Репозиторий создан локально.
+            │       │       Push будет добавлен в одном из следующих релизов."
             │       └── Клонировать: git clone <private-repo-url>
             ├── [4] Проверка наличия .dotmgr.yaml в корне config
             └── [5] Сохранение состояния → state.json
@@ -110,9 +114,9 @@ dotmgr apply [group...]
     ├── [3] Фильтрация по group... (если переданы)
     ├── [4] Для каждой группы:
     │       ├── type: config → stow-like symlink (source → dest)
-    │       │       ├── Если dest существует и не symlink → backup
+    │       │       ├── Если dest существует и не symlink → backup + symlink
     │       │       ├── Если dest уже symlink на тот же source → skip
-    │       │       └── Иначе → backup + symlink
+    │       │       └── Если dest не существует → symlink (без backup)
     │       ├── type: package → apt install
     │       └── (будущие типы: script, secret и т.д.)
     ├── [5] Запись state.json (что применено, timestamp)
@@ -150,10 +154,11 @@ groups:
     dest: "~/"
 
   fastfetch:
-    description: "Fastfetch config + package"
+    description: "Fastfetch config"
     type: config
     source: fastfetch/
     dest: "~/.config/fastfetch/"
+    # Пакет fastfetch устанавливается отдельно — группой packages
 
   packages:
     description: "System packages"
@@ -248,6 +253,8 @@ config-repo/fastfetch/
 - Определять freshness (сравнение head с last_fetch)
 - Определять, какие файлы были заменены и где их бекапы
 
+**Политика хранения:** `backups` — flat-массив, хранятся все записи (append-only). Ручная очистка — ответственность пользователя. При последующих apply файлы уже будут symlink'ами, поэтому новые бэкапы создаваться не будут.
+
 ---
 
 ## 3. CLI Spec
@@ -261,13 +268,13 @@ dotmgr init [OPTIONS]
 | Флаг | Тип | По умолчанию | Описание |
 |---|---|---|---|
 | `--repo-url` | `str` | `git@github.com:<user>/dotmgr-config.git` | URL приватного config-репо |
-| `--name` | `str` | `dotmgr-config` | Имя директории в `~/.dotmgr/` |
+| `--name` | `str` | `dotmgr-config` | Имя директории в `~/.dotmgr/`. Для MVP возможно избыточно (всегда `config`), оставлено для гибкости. |
 | `--no-scaffold` | `bool` | `False` | Не создавать дефолтную структуру |
 | `--force` | `bool` | `False` | Пересоздать config, если существует |
 
 **Поведение:**
 1. Если `~/.dotmgr/config/` не существует:
-   - Если `--repo-url` указан → `git clone --recurse-submodules`
+   - Если `--repo-url` указан → `git clone`
    - Если нет → `git init` + scaffold (.dotmgr.yaml с пустыми группами)
 2. Если `~/.dotmgr/config/` уже существует:
    - `git pull` (как fetch)
@@ -316,9 +323,9 @@ dotmgr apply [OPTIONS] [GROUP...]
 **Поведение:**
 1. Freshness check (если не `--skip-fetch`):
    - `git status -b` → проверить `ahead`/`behind`
-   - Если `behind` → WARNING: "Local config is behind remote. Run 'dotmgr fetch' first."
-   - Если `ahead` (возможно при ручных правках) → WARNING: "Local config has uncommitted changes."
-   - Apply всё равно выполняется (user может прервать Ctrl+C)
+    - Если `behind` → WARNING: "Local config is behind remote. Run 'dotmgr fetch' first."
+    - Если `ahead` (возможно при ручных правках) → WARNING: "Local config has uncommitted changes."
+    - Запрос подтверждения: "Continue apply? [y/N]" (дефолт — прерывание)
 2. Парсинг `.dotmgr.yaml`
 3. Если `GROUP...` не пуст → фильтрация групп по именам
 4. Если `--dry-run` → вывести план и exit
@@ -334,7 +341,7 @@ dotmgr apply [OPTIONS] [GROUP...]
      - Создать symlink: `ln -sf <source-full-path> <dest-path>`
    - **type: package:**
      - `sudo apt-get install -y <pkg1> <pkg2> ...`
-     - Если `SUDO_ASKPASS` не задан и нет tty → `TODO: как быть без sudo?`
+      - Если `SUDO_ASKPASS` не задан и нет tty → `TODO: sudo без tty — обсудить отдельно`
 6. Запись в `state.json`
 
 **Exit codes:**
@@ -355,7 +362,7 @@ dotmgr list [OPTIONS]
 | Флаг | Тип | По умолчанию | Описание |
 |---|---|---|---|
 | `--json` | `bool` | `False` | Вывод в JSON |
-| `--applied` | `bool` | `False` | Только применённые группы |
+| `--applied` | `bool` | `False` | Только применённые группы. Состояние — из `state.json.applied_groups`. Применёнными считаются группы, у которых есть запись в `applied_at`. |
 
 **Вывод (plain):**
 
@@ -611,7 +618,7 @@ main() {
 | Уровень | Что тестируем | Инструмент | Изоляция |
 |---|---|---|---|
 | Unit | `manifest.py`, `config.py`, `utils.py` | `pytest` | Чистые функции, без ФС / сети |
-| Integration | `sync.py`, `cli.py` (частично) | `pytest` + `tmp_path` fixture | temp-директории, mock git |
+| Integration | `sync.py`, `cli.py` (частично) | `pytest` + `tmp_path` fixture (или Docker для полной изоляции) | temp-директории / контейнер, mock git |
 | E2E | `install.sh` + полный цикл | `pytest` + Docker / VM | Контейнер с Ubuntu 24.04 |
 
 ### 6.2 Unit-тесты
@@ -762,11 +769,18 @@ def mock_git_status_clean(monkeypatch):
 
 ---
 
-## 8. Open Questions / TODOs
+## 8. Решённые вопросы
 
-- [ ] `install.sh`: должен ли `install.sh` хардкодить URL публичного репо, или принимать параметром? Если хардкод — как менять при форке?
-- [ ] `sudo` для `type: package`: как быть, если пользователь не в sudoers и нет пароля в tty? Использовать `pkexec`? Отказаться от apply всей группы?
-- [ ] `apply --backup=on-conflict`: критерий конфликта — только существование файла? Или ещё сравнение содержимого?
-- [ ] `state.json`: хранить ли историю бекапов (всегда append) или только последний? Если хранить все — как чистить?
-- [ ] `init --scaffold`: что именно создавать? Только `.dotmgr.yaml` + `.gitignore`? Или сразу несколько групп-примеров?
-- [ ] `verify` (post-MVP): проверка, что symlink валидны и не битые
+| Вопрос | Решение |
+|---|---|
+| URL публичного репо в `install.sh` | Хардкод + `DOTMGR_REPO` env var для переопределения |
+| `sudo` для `type: package` | Прямой вызов `sudo` (на целевой системе sudo доступен). Для `install.sh` — вызов sudo из bash; для `dotmgr apply` — вызов через subprocess |
+| `apply --backup=on-conflict`: критерий | Только существование файла. Сравнение содержимого не выполняется |
+| История бэкапов в `state.json` | Append-only, без автоочистки. После первой замены на symlink новые бэкапы не создаются |
+| `init --scaffold` | Шаблон с 2–3 группами-примерами (git, bash, packages) + пустые source-директории |
+
+## 9. Open Questions / TODOs (post-MVP)
+
+- [ ] `verify` — отдельная команда для проверки валидности symlink. По какому набору проверять: по манифесту или по `state.json.applied_groups`?
+- [ ] `sudo` без tty для `type: package` — требуется отдельное обсуждение
+- [ ] Push (V2): как согласовать локальный scaffold (git init без remote) с будущим push?
