@@ -14,6 +14,7 @@ dotmgr решает три задачи:
 ## Документация проекта
 
 - `docs/PRD.md` — Product Requirements Document (цели, сценарии, MVP scope)
+- `docs/ROADMAP.md` — план развития проекта по фазам
 - `docs/AGENT_WORKFLOW.md` — регламент работы с AI-агентами
 - `docs/CONTEXT_AS_CODE.md` — управление контекстом проекта
 - `docs/CONTRIBUTING.md` — стандарты качества, git workflow, коммиты

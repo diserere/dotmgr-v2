@@ -32,6 +32,7 @@ dotmgr — CLI-инструмент для синхронизации конфи
 ## Источники контекста
 
 - `docs/PRD.md` — требования и MVP scope
+- `docs/ROADMAP.md` — план развития по фазам
 - `docs/AGENT_WORKFLOW.md` — процесс разработки
 - `docs/CONTEXT_AS_CODE.md` — принципы работы с контекстом
 - `docs/CONTRIBUTING.md` — git workflow, коммиты, языковая политика
